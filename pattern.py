@@ -24,9 +24,11 @@ y=np.zeros((255,)).astype('int')
 y[0:85]=0
 y[85:170]=1
 y[170:]=2
+
 b = np.zeros((255, 3))
 b[np.arange(255), y] = 1
 y=b
+
 X_train, X_test, y_train, y_test = train_test_split\
     (x, y, test_size=0.1)
 X_train, X_eval, y_train, y_eval = train_test_split\
@@ -35,14 +37,14 @@ X_train, X_eval, y_train, y_eval = train_test_split\
 # building model
 def dense_relu_drop(x, phase,size, scope):
     with tf.variable_scope(scope):
-        h1 = tf.contrib.layers.fully_connected(x, size, 
+        z = tf.contrib.layers.fully_connected(x, size, 
                                                activation_fn=tf.nn.relu,
                                                scope='dense')
-        dropout_2 =tf.layers.dropout(inputs=h1, rate=0.4,
+        z =tf.layers.dropout(inputs=z, rate=0.1,
                                      training=phase)
 
         
-        return dropout_2
+        return z
 
 x = tf.placeholder('float32', (None, 256,256), name='x')
 y = tf.placeholder('float32', (None,3), name='y')
@@ -57,7 +59,7 @@ input_layer = tf.reshape(x, [-1, 256* 256])
 # logits = tf.layers.dense(inputs=dropout_2, units=3)
 h1 = dense_relu_drop(input_layer, phase,32,'layer1')
 h2 = dense_relu_drop(h1, phase,64, 'layer2')
-h3 = dense_relu_drop(h1, phase,64, 'layer3')
+h3 = dense_relu_drop(h2, phase,64, 'layer3')
 logits = tf.contrib.layers.fully_connected(h3, 3, 
                                              activation_fn=None,
                                              scope=scope)
@@ -71,15 +73,12 @@ with tf.name_scope('loss'):
     loss = tf.reduce_mean(
         tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y))
 
-
-
-
-
-
 # training 
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 with tf.control_dependencies(update_ops):
     train_step = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss)
+    
+    
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
@@ -91,19 +90,20 @@ for i in range(iterep * 30):
     y_batch = y_train[idx]
     
     sess.run(train_step,
-             feed_dict={'x:0': x_batch, 
-                        'y:0': y_batch, 
-                        'phase:0': 1})
+             feed_dict={x: x_batch, 
+                        y: y_batch, 
+                        phase: True})
+    
     if (i + 1) %  iterep == 0:
         epoch = (i + 1)/iterep
         tr = sess.run([loss, accuracy], 
-                      feed_dict={'x:0': X_train,
-                                 'y:0': y_train,
-                                 'phase:0': 1})
+                      feed_dict={x: X_train,
+                                 y: y_train,
+                                 phase: False})
         t = sess.run([loss, accuracy], 
-                     feed_dict={'x:0': X_eval,
-                                'y:0': y_eval,
-                                'phase:0': 0})
+                     feed_dict={x: X_eval,
+                                y: y_eval,
+                                phase: False})
         history += [[epoch] + tr + t]
         print history[-1]
 
